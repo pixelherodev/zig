@@ -2337,7 +2337,7 @@ pub const StringifyOptions = struct {
         /// What character(s) should be used for indentation?
         indent: Indentation = Indentation{ .Space = 4 },
 
-        fn outputIndent(
+        pub fn outputIndent(
             whitespace: @This(),
             out_stream: var,
         ) @TypeOf(out_stream).Error!void {

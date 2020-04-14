@@ -1,5 +1,20 @@
 ![ZIG](https://ziglang.org/zig-logo.svg)
 
+## This repository
+
+This repository contains backported fixes from upstream, and is otherwise
+identical to the 0.6 release.
+
+I am doing this for my own benefit. There is no guarantee that I will
+continue to do this. You're welcome to help, or to ask nicely how it's going,
+but don't insist that I put in work on your behalf.
+
+I don't mean to come across rudely, but I'm taking a great deal of work onto
+myself and I will almost certainly choose to give up before 0.7, and would
+rather make it clear now that I'm not going to continue if that happens.
+
+## Zig
+
 A general-purpose programming language and toolchain for maintaining
 **robust**, **optimal**, and **reusable** software.
 

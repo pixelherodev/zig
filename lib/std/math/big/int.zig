@@ -143,12 +143,15 @@ pub const Int = struct {
     /// Clones an Int and returns a new Int with the same value. The new Int is a deep copy and
     /// can be modified separately from the original.
     pub fn clone(other: Int) !Int {
-        other.assertWritable();
+        return other.clone2(other.allocator.?);
+    }
+
+    pub fn clone2(other: Int, allocator: *Allocator) !Int {
         return Int{
-            .allocator = other.allocator,
+            .allocator = allocator,
             .metadata = other.metadata,
             .limbs = block: {
-                var limbs = try other.allocator.?.alloc(Limb, other.len());
+                var limbs = try allocator.alloc(Limb, other.len());
                 mem.copy(Limb, limbs[0..], other.limbs[0..other.len()]);
                 break :block limbs;
             },
@@ -469,8 +472,8 @@ pub const Int = struct {
                     break;
                 }
             }
-        } // Non power-of-two: batch divisions per word size.
-        else {
+        } else {
+            // Non power-of-two: batch divisions per word size.
             const digits_per_limb = math.log(Limb, base, maxInt(Limb));
             var limb_base: Limb = 1;
             var j: usize = 0;
@@ -478,7 +481,7 @@ pub const Int = struct {
                 limb_base *= base;
             }
 
-            var q = try self.clone();
+            var q = try self.clone2(allocator);
             defer q.deinit();
             q.abs();
             var r = try Int.init(allocator);
@@ -521,17 +524,35 @@ pub const Int = struct {
 
     /// To allow `std.fmt.printf` to work with Int.
     /// TODO make this non-allocating
+    /// TODO support read-only fixed integers
     pub fn format(
         self: Int,
         comptime fmt: []const u8,
         options: std.fmt.FormatOptions,
         out_stream: var,
     ) !void {
-        self.assertWritable();
-        // TODO look at fmt and support other bases
-        // TODO support read-only fixed integers
-        const str = self.toString(self.allocator.?, 10) catch @panic("TODO make this non allocating");
-        defer self.allocator.?.free(str);
+        comptime var radix = 10;
+        comptime var uppercase = false;
+
+        if (fmt.len == 0 or comptime std.mem.eql(u8, fmt, "d")) {
+            radix = 10;
+            uppercase = false;
+        } else if (comptime std.mem.eql(u8, fmt, "b")) {
+            radix = 2;
+            uppercase = false;
+        } else if (comptime std.mem.eql(u8, fmt, "x")) {
+            radix = 16;
+            uppercase = false;
+        } else if (comptime std.mem.eql(u8, fmt, "X")) {
+            radix = 16;
+            uppercase = true;
+        } else {
+            @compileError("Unknown format string: '" ++ fmt ++ "'");
+        }
+
+        var buf: [4096]u8 = undefined;
+        var fba = std.heap.FixedBufferAllocator.init(&buf);
+        const str = self.toString(&fba.allocator, radix, uppercase) catch @panic("TODO make this non allocating");
         return out_stream.writeAll(str);
     }
 

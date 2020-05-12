@@ -2196,7 +2196,7 @@ test "write json then parse it" {
     try jw.emitBool(true);
 
     try jw.objectField("int");
-    try jw.emitNumber(@as(i32, 1234));
+    try jw.emitNumber(1234);
 
     try jw.objectField("array");
     try jw.beginArray();
@@ -2205,7 +2205,7 @@ test "write json then parse it" {
     try jw.emitNull();
 
     try jw.arrayElem();
-    try jw.emitNumber(@as(f64, 12.34));
+    try jw.emitNumber(12.34);
 
     try jw.endArray();
 

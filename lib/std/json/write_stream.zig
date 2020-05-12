@@ -168,8 +168,11 @@ pub fn WriteStream(comptime OutStream: type, comptime max_depth: usize) type {
                         return;
                     }
                 },
-                .Float => if (@floatCast(f64, value) == value) {
-                    try self.stream.print("{}", .{value});
+                .ComptimeInt => {
+                    return self.emitNumber(@as(std.math.IntFittingRange(value, value), value));
+                },
+                .Float, .ComptimeFloat => if (@floatCast(f64, value) == value) {
+                    try self.stream.print("{}", .{@floatCast(f64, value)});
                     self.popState();
                     return;
                 },

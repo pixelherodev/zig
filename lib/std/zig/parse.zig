@@ -194,6 +194,10 @@ fn findEndOfBlock(it: *TokenIterator) void {
             count -= 1;
             if (count == 0) return;
         },
+        .Eof => {
+            _ = it.prev();
+            return;
+        },
         else => {},
     };
 }
@@ -210,8 +214,12 @@ fn findToken(it: *TokenIterator, wanted: Token.Id) void {
             }
             count -= 1;
         },
+        .Eof => {
+            _ = it.prev();
+            return;
+        },
         else => {
-            if (tok.id == wanted and count == 0) return; 
+            if (tok.id == wanted and count == 0) return;
         },
     };
 }
@@ -2311,7 +2319,7 @@ fn parsePrefixTypeOp(arena: *Allocator, it: *TokenIterator, tree: *Tree) !?*Node
         const node = try arena.create(Node.AnyFrameType);
         node.* = .{
             .anyframe_token = token,
-            .result = Node.AnyFrameType.Result{
+            .result = .{
                 .arrow_token = arrow,
                 .return_type = undefined, // set by caller
             },
@@ -2352,6 +2360,13 @@ fn parsePrefixTypeOp(arena: *Allocator, it: *TokenIterator, tree: *Tree) !?*Node
                 } else null;
                 _ = try expectToken(it, tree, .RParen);
 
+                if (ptr_info.align_info != null) {
+                    try tree.errors.push(.{
+                        .ExtraAlignQualifier = .{ .token = it.index - 1 },
+                    });
+                    continue;
+                }
+
                 ptr_info.align_info = Node.PrefixOp.PtrInfo.Align{
                     .node = expr_node,
                     .bit_range = bit_range,
@@ -2360,14 +2375,32 @@ fn parsePrefixTypeOp(arena: *Allocator, it: *TokenIterator, tree: *Tree) !?*Node
                 continue;
             }
             if (eatToken(it, .Keyword_const)) |const_token| {
+                if (ptr_info.const_token != null) {
+                    try tree.errors.push(.{
+                        .ExtraConstQualifier = .{ .token = it.index - 1 },
+                    });
+                    continue;
+                }
                 ptr_info.const_token = const_token;
                 continue;
             }
             if (eatToken(it, .Keyword_volatile)) |volatile_token| {
+                if (ptr_info.volatile_token != null) {
+                    try tree.errors.push(.{
+                        .ExtraVolatileQualifier = .{ .token = it.index - 1 },
+                    });
+                    continue;
+                }
                 ptr_info.volatile_token = volatile_token;
                 continue;
             }
             if (eatToken(it, .Keyword_allowzero)) |allowzero_token| {
+                if (ptr_info.allowzero_token != null) {
+                    try tree.errors.push(.{
+                        .ExtraAllowZeroQualifier = .{ .token = it.index - 1 },
+                    });
+                    continue;
+                }
                 ptr_info.allowzero_token = allowzero_token;
                 continue;
             }
@@ -2386,9 +2419,9 @@ fn parsePrefixTypeOp(arena: *Allocator, it: *TokenIterator, tree: *Tree) !?*Node
                     if (try parseByteAlign(arena, it, tree)) |align_expr| {
                         if (slice_type.align_info != null) {
                             try tree.errors.push(.{
-                                .ExtraAlignQualifier = .{ .token = it.index },
+                                .ExtraAlignQualifier = .{ .token = it.index - 1 },
                             });
-                            return error.ParseError;
+                            continue;
                         }
                         slice_type.align_info = Node.PrefixOp.PtrInfo.Align{
                             .node = align_expr,
@@ -2399,9 +2432,9 @@ fn parsePrefixTypeOp(arena: *Allocator, it: *TokenIterator, tree: *Tree) !?*Node
                     if (eatToken(it, .Keyword_const)) |const_token| {
                         if (slice_type.const_token != null) {
                             try tree.errors.push(.{
-                                .ExtraConstQualifier = .{ .token = it.index },
+                                .ExtraConstQualifier = .{ .token = it.index - 1 },
                             });
-                            return error.ParseError;
+                            continue;
                         }
                         slice_type.const_token = const_token;
                         continue;
@@ -2409,9 +2442,9 @@ fn parsePrefixTypeOp(arena: *Allocator, it: *TokenIterator, tree: *Tree) !?*Node
                     if (eatToken(it, .Keyword_volatile)) |volatile_token| {
                         if (slice_type.volatile_token != null) {
                             try tree.errors.push(.{
-                                .ExtraVolatileQualifier = .{ .token = it.index },
+                                .ExtraVolatileQualifier = .{ .token = it.index - 1 },
                             });
-                            return error.ParseError;
+                            continue;
                         }
                         slice_type.volatile_token = volatile_token;
                         continue;
@@ -2419,9 +2452,9 @@ fn parsePrefixTypeOp(arena: *Allocator, it: *TokenIterator, tree: *Tree) !?*Node
                     if (eatToken(it, .Keyword_allowzero)) |allowzero_token| {
                         if (slice_type.allowzero_token != null) {
                             try tree.errors.push(.{
-                                .ExtraAllowZeroQualifier = .{ .token = it.index },
+                                .ExtraAllowZeroQualifier = .{ .token = it.index - 1 },
                             });
-                            return error.ParseError;
+                            continue;
                         }
                         slice_type.allowzero_token = allowzero_token;
                         continue;

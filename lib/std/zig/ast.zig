@@ -166,6 +166,7 @@ pub const Error = union(enum) {
     ExpectedSuffixOp: ExpectedSuffixOp,
     DeclBetweenFields: DeclBetweenFields,
     MissingComma: MissingComma,
+    InvalidAnd: InvalidAnd,
 
     pub fn render(self: *const Error, tokens: *Tree.TokenList, stream: var) !void {
         switch (self.*) {
@@ -216,6 +217,7 @@ pub const Error = union(enum) {
 
             .DeclBetweenFields => |*x| return x.render(tokens, stream),
             .MissingComma => |*x| return x.render(tokens, stream),
+            .InvalidAnd => |*x| return x.render(tokens, stream),
         }
     }
 
@@ -267,6 +269,7 @@ pub const Error = union(enum) {
             .ExpectedSuffixOp => |x| return x.token,
             .DeclBetweenFields => |x| return x.token,
             .MissingComma => |x| return x.token,
+            .InvalidAnd => |x| return x.token,
         }
     }
 
@@ -313,6 +316,7 @@ pub const Error = union(enum) {
     pub const ExtraAllowZeroQualifier = SimpleError("Extra allowzero qualifier");
     pub const DeclBetweenFields = SimpleError("Declarations are not allowed between container fields");
     pub const MissingComma = SimpleError("Expected comma between items");
+    pub const InvalidAnd = SimpleError("`&&` is invalid. Note that `and` is boolean AND.");
 
     pub const ExpectedCall = struct {
         node: *Node,
@@ -340,9 +344,6 @@ pub const Error = union(enum) {
         pub fn render(self: *const ExpectedToken, tokens: *Tree.TokenList, stream: var) !void {
             const found_token = tokens.at(self.token);
             switch (found_token.id) {
-                .Invalid_ampersands => {
-                    return stream.print("`&&` is invalid. Note that `and` is boolean AND.", .{});
-                },
                 .Invalid => {
                     return stream.print("expected '{}', found invalid bytes", .{self.expected_id.symbol()});
                 },

@@ -1,17 +1,10 @@
 ![ZIG](https://ziglang.org/zig-logo.svg)
 
-## This repository
+## Unofficial backports
 
-This repository contains backported fixes from upstream, and is otherwise
-identical to the 0.6 release.
-
-I am doing this for my own benefit. There is no guarantee that I will
-continue to do this. You're welcome to help, or to ask nicely how it's going,
-but don't insist that I put in work on your behalf.
-
-I don't mean to come across rudely, but I'm taking a great deal of work onto
-myself and I will almost certainly choose to give up before 0.7, and would
-rather make it clear now that I'm not going to continue if that happens.
+The 0.6.3 unofficial "release" is the final one. I'm not using this anymore, as
+I'm working on the upstream compiler, so I have no reason to continue working
+on backports.
 
 ## Zig
 

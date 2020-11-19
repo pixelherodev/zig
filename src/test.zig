@@ -53,6 +53,10 @@ pub const TestContext = struct {
             /// stdout against the expected results
             /// This is a slice containing the expected message.
             Execution: []const u8,
+            /// A header update compiles the input with the equivalent of
+            /// `-Demit_h=true` and tests the produced header against the
+            /// expected result
+            Header: []const u8,
         },
     };
 
@@ -92,6 +96,15 @@ pub const TestContext = struct {
             self.updates.append(.{
                 .src = src,
                 .case = .{ .Transformation = result },
+            }) catch unreachable;
+        }
+
+        /// Adds a subcase in which the module is updated with `src`, and a C
+        /// header is generated.
+        pub fn addHeader(self: *Case, src: [:0]const u8, result: [:0]const u8) void {
+            self.updates.append(.{
+                .src = src,
+                .case = .{ .Header = result },
             }) catch unreachable;
         }
 
@@ -221,6 +234,10 @@ pub const TestContext = struct {
 
     pub fn c(ctx: *TestContext, name: []const u8, target: std.zig.CrossTarget, src: [:0]const u8, comptime out: [:0]const u8) void {
         ctx.addC(name, target, .Zig).addTransform(src, cheader ++ out);
+    }
+
+    pub fn h(ctx: *TestContext, name: []const u8, target: std.zig.CrossTarget, src: [:0]const u8, comptime out: [:0]const u8) void {
+        ctx.addC(name, target, .Zig).addHeader(src, cheader ++ out);
     }
 
     pub fn addCompareOutput(
@@ -495,6 +512,10 @@ pub const TestContext = struct {
             .directory = emit_directory,
             .basename = bin_name,
         };
+        const emit_h: Compilation.EmitLoc = .{
+            .directory = emit_directory,
+            .basename = "test_case.h",
+        };
         const comp = try Compilation.create(allocator, .{
             .local_cache_directory = zig_cache_directory,
             .global_cache_directory = zig_cache_directory,
@@ -509,6 +530,7 @@ pub const TestContext = struct {
             // TODO: support testing optimizations
             .optimize_mode = .Debug,
             .emit_bin = emit_bin,
+            .emit_h = emit_h,
             .root_pkg = &root_pkg,
             .keep_source_files_loaded = true,
             .object_format = ofmt,
@@ -554,6 +576,22 @@ pub const TestContext = struct {
             }
 
             switch (update.case) {
+                .Header => |expected_output| {
+                    var file = try tmp.dir.openFile("test_case.h", .{ .read = true });
+                    defer file.close();
+                    var out = file.reader().readAllAlloc(arena, 1024 * 1024) catch @panic("Unable to read headeroutput!");
+
+                    if (expected_output.len != out.len) {
+                        std.debug.print("\nTransformed header length differs:\n================\nExpected:\n================\n{}\n================\nFound:\n================\n{}\n================\nTest failed.\n", .{ expected_output, out });
+                        std.process.exit(1);
+                    }
+                    for (expected_output) |e, i| {
+                        if (out[i] != e) {
+                            std.debug.print("\nTransformed header differs:\n================\nExpected:\n================\n{}\n================\nFound:\n================\n{}\n================\nTest failed.\n", .{ expected_output, out });
+                            std.process.exit(1);
+                        }
+                    }
+                },
                 .Transformation => |expected_output| {
                     if (case.cbe) {
                         // The C file is always closed after an update, because we don't support
@@ -608,8 +646,8 @@ pub const TestContext = struct {
                     test_node.activate();
                     defer test_node.end();
                     var handled_errors = try arena.alloc(bool, e.len);
-                    for (handled_errors) |*h| {
-                        h.* = false;
+                    for (handled_errors) |*handled| {
+                        handled.* = false;
                     }
                     var all_errors = try comp.getAllErrorsAlloc();
                     defer all_errors.deinit(allocator);
@@ -625,8 +663,8 @@ pub const TestContext = struct {
                         }
                     }
 
-                    for (handled_errors) |h, i| {
-                        if (!h) {
+                    for (handled_errors) |handled, i| {
+                        if (!handled) {
                             const er = e[i];
                             std.debug.print("{}\nDid not receive error:\n================\n{}:{}: {}\n================\nTest failed.\n", .{ case.name, er.line, er.column, er.msg });
                             std.process.exit(1);

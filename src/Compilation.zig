@@ -1022,6 +1022,10 @@ pub fn destroy(self: *Compilation) void {
     }
     self.failed_c_objects.deinit(gpa);
 
+    if (self.c_header) |*header| {
+        header.deinit();
+    }
+
     self.cache_parent.manifest_dir.close();
     if (self.owned_link_dir) |*dir| dir.close();
 

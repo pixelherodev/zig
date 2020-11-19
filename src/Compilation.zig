@@ -114,11 +114,11 @@ test_filter: ?[]const u8,
 test_name_prefix: ?[]const u8,
 test_evented_io: bool,
 
-emit_h: ?EmitLoc,
 emit_asm: ?EmitLoc,
 emit_llvm_ir: ?EmitLoc,
 emit_analysis: ?EmitLoc,
 emit_docs: ?EmitLoc,
+
 c_header: ?c_link.Header,
 
 pub const InnerError = Module.InnerError;
@@ -836,8 +836,7 @@ pub fn create(gpa: *Allocator, options: InitOptions) !*Compilation {
             .local_cache_directory = options.local_cache_directory,
             .global_cache_directory = options.global_cache_directory,
             .bin_file = bin_file,
-            .emit_h = options.emit_h,
-            .c_header = if (!use_llvm and options.emit_h != null) c_link.Header.init(gpa) else null,
+            .c_header = if (!use_llvm and options.emit_h != null) c_link.Header.init(gpa, options.emit_h) else null,
             .emit_asm = options.emit_asm,
             .emit_llvm_ir = options.emit_llvm_ir,
             .emit_analysis = options.emit_analysis,
@@ -1121,7 +1120,7 @@ pub fn update(self: *Compilation) !void {
 
     // If we've chosen to emit a C header, flush the header the disk.
     if (self.c_header) |header| {
-        const header_path = self.emit_h.?;
+        const header_path = header.emit_loc.?;
         // If a directory has been provided, write the header there. Otherwise, just write it to the
         // cache directory.
         const header_dir = if (header_path.directory) |dir|
@@ -2694,11 +2693,11 @@ fn updateStage1Module(comp: *Compilation, main_progress_node: *std.Progress.Node
     man.hash.add(comp.bin_file.options.function_sections);
     man.hash.add(comp.bin_file.options.is_test);
     man.hash.add(comp.bin_file.options.emit != null);
-    man.hash.add(comp.emit_h != null);
     man.hash.add(comp.emit_asm != null);
     man.hash.add(comp.emit_llvm_ir != null);
     man.hash.add(comp.emit_analysis != null);
     man.hash.add(comp.emit_docs != null);
+    man.hash.add(comp.c_header != null);
     man.hash.addOptionalBytes(comp.test_filter);
     man.hash.addOptionalBytes(comp.test_name_prefix);
 
@@ -2792,10 +2791,10 @@ fn updateStage1Module(comp: *Compilation, main_progress_node: *std.Progress.Node
         });
         break :blk try directory.join(arena, &[_][]const u8{bin_basename});
     } else "";
-    if (comp.emit_h != null) {
+    if (comp.c_header != null) {
         log.warn("-femit-h is not available in the stage1 backend; no .h file will be produced", .{});
     }
-    const emit_h_path = try stage1LocPath(arena, comp.emit_h, directory);
+    const emit_h_path = try stage1LocPath(arena, if (comp.c_header) |header| header.emit_loc else null, directory);
     const emit_asm_path = try stage1LocPath(arena, comp.emit_asm, directory);
     const emit_llvm_ir_path = try stage1LocPath(arena, comp.emit_llvm_ir, directory);
     const emit_analysis_path = try stage1LocPath(arena, comp.emit_analysis, directory);
